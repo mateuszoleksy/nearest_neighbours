@@ -1,4 +1,4 @@
-# SimpleKNN: Educational K-Nearest Neighbors
+# K-Nearest Neighbors
 
 Implementation of k-NN algorithm in Python. 
 
