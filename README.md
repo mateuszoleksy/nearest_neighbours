@@ -48,7 +48,7 @@ $$
 
 Where $y_i$ is the class label of the $i$-th nearest neighbor.
 
-## 🛠 Installation
+## Installation
 
 You need Python installed along with `numpy` and `matplotlib`.
 
