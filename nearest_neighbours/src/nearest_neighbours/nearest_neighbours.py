@@ -1,132 +1,183 @@
-import math
+import numpy as np
+import matplotlib.pyplot as plt
 from collections import Counter
 
-# --- Funkcje Pomocnicze ---
-
-def is_number(s):
-    try:
-        float(s)
-        return True
-    except:
-        return False
-
-def euclidean_distance(row1, row2):
+class SimpleKNN:
     """
-    Oblicza odległość euklidesową (miarę podobieństwa) między dwoma wierszami (próbkami).
-    [Image of Euclidean Distance formula]
+    Implementation of NN
     """
-    distance = 0.0
-    # Zabezpieczenie przed różną długością wektorów (choć nie powinno się zdarzyć w poprawnych danych)
-    min_len = min(len(row1), len(row2))
-    for i in range(min_len):
-        distance += (row1[i] - row2[i])**2
-    return math.sqrt(distance)
+    def __init__(self, k=3, metric='euclidean', p=3):
+        # k: The number of neighbors to vote. Odd numbers (1, 3, 5) are preferred
+        # to avoid tie votes in binary classification (e.g., 2 votes for Class A, 2 for Class B).
+        self.k = k
+        
+        # metric: The formula used to calculate.
+        self.metric = metric
+        
+        # p: Only used for Minkowski distance. 
+        # p=1 is Manhattan, p=2 is Euclidean. p=3 to show a different shape.
+        self.p = p
+        
+        self.X_train = None
+        self.y_train = None
 
-# --- Funkcja Wczytywania Danych (bez zmian) ---
+    def fit(self, X, y):
+        self.X_train = np.array(X)
+        self.y_train = np.array(y)
 
-def read_data(x_path="input_x.txt", y_path="input_y.txt"):
-    """
-    Wczytuje X i Y. X może mieć opcjonalny nagłówek w pierwszym wierszu.
-    Format: CSV (przecinki). Wartości cech są konwertowane na floaty.
-    Y: jedna etykieta na linię (0 lub 1).
-    Zwraca: X (lista list float), Y (lista int 0/1), feature_names (lista lub None)
-    """
-    feature_names = None
-    X = []
-    with open(x_path, "r", encoding="utf-8") as fx:
-        lines = [line.strip() for line in fx if line.strip() != ""]
-        if not lines:
-            raise ValueError("Plik X jest pusty.")
-        # Sprawdź czy pierwszy wiersz to nagłówek
-        first_tokens = [tok.strip() for tok in lines[0].split(",")]
-        data_lines = lines
-        if not all(is_number(tok) for tok in first_tokens):
-            feature_names = first_tokens
-            data_lines = lines[1:]
-
-        # parsuj wiersze danych
-        for ln in data_lines:
-            toks = [tok.strip() for tok in ln.split(",")]
-            if not all(is_number(tok) for tok in toks):
-                raise ValueError(f"Nie wszystkie wartości cech są liczbami w wierszu: {ln}")
-            X.append([float(tok) for tok in toks]) # Używamy float
-
-    Y = []
-    with open(y_path, "r", encoding="utf-8") as fy:
-        for line in fy:
-            line = line.strip()
-            if line == "":
-                continue
-            tok = line.split(",")[0].strip()
-            if not is_number(tok):
-                raise ValueError(f"Etykieta musi być liczbą (0/1), znaleziono: {tok}")
-            val = float(tok)
-            if val not in (0.0, 1.0):
-                raise ValueError(f"Etykiety muszą być 0 lub 1. Znaleziono: {val}")
-            Y.append(int(val))
+    def _calculate_distance(self, x1, x2):
+        """
+        Computes the distance between point x1 and point x2 based on the chosen metric.
+        """
+        if self.metric == 'euclidean':
+            # Standard straight-line distance (Pythagorean theorem).
+            # Formula: sqrt(sum((x - y)^2))
+            return np.sqrt(np.sum((x1 - x2) ** 2))
             
-    if len(X) != len(Y):
-        raise ValueError(f"Liczba wierszy X ({len(X)}) nie zgadza się z liczbą etykiet Y ({len(Y)}).")
+        elif self.metric == 'manhattan':
+            # distance traveled if you can only move along a grid.
+            # Formula: sum(|x - y|)
+            return np.sum(np.abs(x1 - x2))
+            
+        elif self.metric == 'minkowski':
+            # A generalized distance metric.
+            # Formula: (sum(|x - y|^p))^(1/p)
+            return np.power(np.sum(np.abs(x1 - x2) ** self.p), 1 / self.p)
+            
+        else:
+            raise ValueError(f"Unknown metric: {self.metric}")
 
-    return X, Y, feature_names
+    def predict(self, X_new):
+        """
+        Predicts the class for a new point by looking at its neighbors.
+        """
+        # Step 1: Calculate distance from the new point to EVERY point in the training set.
+        distances = []
+        for i in range(len(self.X_train)):
+            dist = self._calculate_distance(X_new, self.X_train[i])
+            # We store the distance AND the actual label/coordinates so we can reference them later
+            distances.append((dist, self.y_train[i], self.X_train[i]))
 
-# --- Funkcje NN (K-NN z K=1) ---
+        # Step 2: Sort the list by distance (smallest to largest) and take the top 'k'.
+        # lambda x: x[0] tells the sort function to look at the distance (first item in tuple).
+        sorted_distances = sorted(distances, key=lambda x: x[0])[:self.k]
 
-def get_nearest_neighbor(X_train, Y_train, x_test_row):
+        # Step 3: Extract just the labels (0 or 1) from the k nearest neighbors.
+        k_nearest_labels = [neighbor[1] for neighbor in sorted_distances]
+
+        # Step 4: Majority Vote.
+        # Counter creates a map like {0: 2, 1: 1} (Class 0 has 2 votes, Class 1 has 1 vote).
+        # most_common(1) returns the winner: [(0, 2)].
+        most_common = Counter(k_nearest_labels).most_common(1)
+        predicted_class = most_common[0][0]
+
+        return predicted_class, sorted_distances
+
+def generate_mock_data(n_samples=20):
     """
-    Znajduje etykietę pojedynczego, najbliższego sąsiada (K=1).
+    Creates synthetic data for testing. 
+    We generate two 'blobs' of data using a normal (Gaussian) distribution.
     """
-    distances = []
-    # Oblicz odległość do wszystkich punktów treningowych
-    for i, train_row in enumerate(X_train):
-        dist = euclidean_distance(x_test_row, train_row)
-        distances.append((dist, Y_train[i])) # (odległość, etykieta)
+    # Class 0: A cluster centered around coordinate (2, 2)
+    class_0_x = np.random.normal(2, 1, n_samples)
+    class_0_y = np.random.normal(2, 1, n_samples)
+    class_0 = np.column_stack((class_0_x, class_0_y))
+    labels_0 = np.zeros(n_samples, dtype=int)
 
-    # Posortuj po odległości i wybierz 1 najbliższy
-    distances.sort(key=lambda x: x[0])
+    # Class 1: A cluster centered around coordinate (6, 6)
+    class_1_x = np.random.normal(6, 1, n_samples)
+    class_1_y = np.random.normal(6, 1, n_samples)
+    class_1 = np.column_stack((class_1_x, class_1_y))
+    labels_1 = np.ones(n_samples, dtype=int)
+
+    # Stack them together into one dataset
+    X = np.vstack((class_0, class_1))
+    y = np.concatenate((labels_0, labels_1))
     
-    # Zwróć etykietę pierwszego elementu
-    if distances:
-        return distances[0][1]
-    else:
-        raise ValueError("Brak danych treningowych.")
+    return X, y
 
-def predict_nn(X_train, Y_train, x_test_row):
+def visualize_knn(X, y, new_point, classifier, predicted_class, neighbors, ax=None):
     """
-    Przewiduje klasę dla pojedynczej próbki testowej x_test_row
-    na podstawie etykiety najbliższego sąsiada (NN).
+    Helper function to plot the data.
     """
-    # 1. Znajdź najbliższego sąsiada
-    prediction = get_nearest_neighbor(X_train, Y_train, x_test_row)
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 8))
     
-    # 2. Predykcja jest po prostu etykietą tego sąsiada
-    return prediction
+    # Plot training points (Class 0 = Blue, Class 1 = Red)
+    ax.scatter(X[y == 0][:, 0], X[y == 0][:, 1], 
+                color='blue', label='Class 0', alpha=0.6, s=50)
+    
+    ax.scatter(X[y == 1][:, 0], X[y == 1][:, 1], 
+                color='red', label='Class 1', alpha=0.6, s=50)
 
-# --- PRZYKŁAD UŻYCIA NN ---
+    # Plot the new mystery point
+    label_text = f'Pred: Class {predicted_class}'
+    ax.scatter(new_point[0], new_point[1], 
+                color='green', marker='*', s=150, label='New Point', edgecolors='black')
+
+    # Draw lines connecting the mystery point to its K nearest neighbors
+    for dist, label, coord in neighbors:
+        line_color = 'blue' if label == 0 else 'red'
+        ax.plot([new_point[0], coord[0]], [new_point[1], coord[1]], 
+                 'k--', alpha=0.4, linewidth=1)
+        
+        # Draw a circle around the chosen neighbors to highlight them
+        ax.scatter(coord[0], coord[1], s=80, facecolors='none', edgecolors=line_color, linewidth=1.5)
+
+    metric_name = classifier.metric.capitalize()
+    if classifier.metric == 'minkowski':
+        metric_name += f' (p={classifier.p})'
+    
+    ax.set_title(f'{metric_name}, k={classifier.k}\nResult: Class {predicted_class}', fontsize=10)
+    ax.grid(True, linestyle='--', alpha=0.3)
+    ax.tick_params(axis='both', which='major', labelsize=8)
+
+def main():
+    # Set a random seed so the 'random' numbers are the same every time we run the script
+    np.random.seed(42)
+    print("Generating synthetic data...")
+    X_train, y_train = generate_mock_data(n_samples=15)
+
+    # Define the point we want to classify
+    new_point = np.array([4.0, 4.0]) 
+
+    # We will test these combinations
+    k_values = [1, 3, 5]
+    metrics = ['euclidean', 'manhattan', 'minkowski']
+    
+    # Create a 3x3 grid of plots
+    fig, axes = plt.subplots(len(k_values), len(metrics), figsize=(12, 10))
+    
+    print("-" * 60)
+
+    # Nested loop: Iterate over every k value and every metric
+    for row_idx, k in enumerate(k_values):
+        for col_idx, metric in enumerate(metrics):
+            ax = axes[row_idx, col_idx]
+            
+            # Create and train the model
+            knn = SimpleKNN(k=k, metric=metric, p=3)
+            knn.fit(X_train, y_train)
+            
+            # Predict
+            prediction, neighbors = knn.predict(new_point)
+            
+            print(f"k={k} | {metric.ljust(10)} | Predicted: Class {prediction}")
+            
+            # Draw the specific subplot
+            visualize_knn(X_train, y_train, new_point, knn, prediction, neighbors, ax=ax)
+            
+            # Only add labels to the outer edges of the entire grid to save space
+            if row_idx == len(k_values) - 1:
+                ax.set_xlabel('Feature 1', fontsize=9)
+            if col_idx == 0:
+                ax.set_ylabel('Feature 2', fontsize=9)
+
+    plt.suptitle(f'k vs metrics', fontsize=14)
+    # Adjust layout prevents the title from overlapping with the top plots
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    print("-" * 60)
+    plt.show()
 
 if __name__ == "__main__":
-    # Wartość K jest teraz ZAWSZE 1 (implikowana) dla NN
-    
-    try:
-        X_train, Y_train, feature_names = read_data()
-    except Exception as e:
-        # Przykładowy zbiór danych w przypadku braku plików
-        print("Błąd przy wczytywaniu danych:", e)
-        X_train = [
-            [2.781, 2.550], [1.465, 2.362], [3.396, 4.400], # Klasa 0
-            [7.627, 2.759], [5.332, 2.088], [6.922, 1.771]  # Klasa 1
-        ]
-        Y_train = [0, 0, 0, 1, 1, 1]
-        feature_names = ["cecha_1", "cecha_2"]
-        print("Używam przykładowego zbioru danych.")
-
-    # Dane do testowania
-    x_test_row = [5.0, 3.0] # Spodziewana klasa 1 (bliżej [7.627, 2.759])
-    
-    # Użycie funkcji NN
-    print(f"\nKlasyfikuję próbkę testową: {x_test_row}")
-    
-    # Predykcja NN (używa K=1 wewnątrz)
-    prediction = predict_nn(X_train, Y_train, x_test_row)
-    
-    print(f"Przewidziana klasa (Nearest Neighbor): {prediction}")
+    main()
