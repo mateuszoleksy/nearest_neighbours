@@ -54,3 +54,8 @@ You need Python installed along with `numpy` and `matplotlib`.
 
 ```bash
 pip install numpy matplotlib
+```
+
+## Results
+
+![Results](results.png)
