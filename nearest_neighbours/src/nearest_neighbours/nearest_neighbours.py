@@ -9,17 +9,11 @@ def is_number(s):
         return True
     except:
         return False
-    
-# Funkcja normalize_probs jest zbędna w K-NN i została usunięta.
-# Normalizacja odległości może być wykonana zewnętrznie, jeśli jest potrzebna.
 
 def euclidean_distance(row1, row2):
     """
     Oblicza odległość euklidesową (miarę podobieństwa) między dwoma wierszami (próbkami).
-    Jest to najczęściej używana metryka w K-NN. 
-
-[Image of Euclidean Distance formula]
-
+    [Image of Euclidean Distance formula]
     """
     distance = 0.0
     # Zabezpieczenie przed różną długością wektorów (choć nie powinno się zdarzyć w poprawnych danych)
@@ -28,7 +22,7 @@ def euclidean_distance(row1, row2):
         distance += (row1[i] - row2[i])**2
     return math.sqrt(distance)
 
-# --- Funkcja Wczytywania Danych (Minimalna modyfikacja) ---
+# --- Funkcja Wczytywania Danych (bez zmian) ---
 
 def read_data(x_path="input_x.txt", y_path="input_y.txt"):
     """
@@ -76,11 +70,11 @@ def read_data(x_path="input_x.txt", y_path="input_y.txt"):
 
     return X, Y, feature_names
 
-# --- NOWE FUNKCJE K-NN ---
+# --- Funkcje NN (K-NN z K=1) ---
 
-def get_neighbors(X_train, Y_train, x_test_row, k):
+def get_nearest_neighbor(X_train, Y_train, x_test_row):
     """
-    Znajduje k najbliższych sąsiadów dla danej próbki testowej.
+    Znajduje etykietę pojedynczego, najbliższego sąsiada (K=1).
     """
     distances = []
     # Oblicz odległość do wszystkich punktów treningowych
@@ -88,38 +82,30 @@ def get_neighbors(X_train, Y_train, x_test_row, k):
         dist = euclidean_distance(x_test_row, train_row)
         distances.append((dist, Y_train[i])) # (odległość, etykieta)
 
-    # Posortuj po odległości i wybierz k najbliższych
+    # Posortuj po odległości i wybierz 1 najbliższy
     distances.sort(key=lambda x: x[0])
-    neighbors = distances[:k]
     
-    # Zwróć tylko etykiety sąsiadów
-    return [label for dist, label in neighbors]
+    # Zwróć etykietę pierwszego elementu
+    if distances:
+        return distances[0][1]
+    else:
+        raise ValueError("Brak danych treningowych.")
 
-def predict_knn(X_train, Y_train, x_test_row, k):
+def predict_nn(X_train, Y_train, x_test_row):
     """
     Przewiduje klasę dla pojedynczej próbki testowej x_test_row
-    na podstawie głosowania większościowego k najbliższych sąsiadów.
+    na podstawie etykiety najbliższego sąsiada (NN).
     """
-    # 1. Znajdź sąsiadów
-    neighbor_labels = get_neighbors(X_train, Y_train, x_test_row, k)
-
-    # 2. Głosowanie większościowe
-    # Counter liczy wystąpienia każdej etykiety.
-    most_common = Counter(neighbor_labels).most_common(1)
+    # 1. Znajdź najbliższego sąsiada
+    prediction = get_nearest_neighbor(X_train, Y_train, x_test_row)
     
-    if not most_common:
-        # Zdarza się tylko, gdy neighbor_labels jest puste (k=0 lub błąd)
-        raise ValueError("Brak etykiet sąsiadów do głosowania. Sprawdź K.")
-        
-    return most_common[0][0]
+    # 2. Predykcja jest po prostu etykietą tego sąsiada
+    return prediction
 
-# --- PRZYKŁAD UŻYCIA K-NN ---
+# --- PRZYKŁAD UŻYCIA NN ---
 
 if __name__ == "__main__":
-    # K-NN NIE ma funkcji train_algorithm, ponieważ 'model' to całe dane treningowe (X, Y).
-    # W K-NN całe 'uczenie' odbywa się w funkcji predykcyjnej.
-    
-    K_NEIGHBORS = 3 # Hiperparametr K
+    # Wartość K jest teraz ZAWSZE 1 (implikowana) dla NN
     
     try:
         X_train, Y_train, feature_names = read_data()
@@ -127,30 +113,20 @@ if __name__ == "__main__":
         # Przykładowy zbiór danych w przypadku braku plików
         print("Błąd przy wczytywaniu danych:", e)
         X_train = [
-            [2.781, 2.550], [1.465, 2.362], [3.396, 4.400],
-            [1.388, 1.850], [3.064, 3.015], [7.627, 2.759],
-            [5.332, 2.088], [6.922, 1.771], [8.675, -0.242],
-            [7.673, 3.508]
+            [2.781, 2.550], [1.465, 2.362], [3.396, 4.400], # Klasa 0
+            [7.627, 2.759], [5.332, 2.088], [6.922, 1.771]  # Klasa 1
         ]
-        Y_train = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]
+        Y_train = [0, 0, 0, 1, 1, 1]
         feature_names = ["cecha_1", "cecha_2"]
         print("Używam przykładowego zbioru danych.")
 
     # Dane do testowania
-    x_test_row = [5.0, 3.0]
+    x_test_row = [5.0, 3.0] # Spodziewana klasa 1 (bliżej [7.627, 2.759])
     
-    # Użycie funkcji K-NN
-    print(f"\nKlasyfikuję próbkę testową: {x_test_row} z K={K_NEIGHBORS}")
+    # Użycie funkcji NN
+    print(f"\nKlasyfikuję próbkę testową: {x_test_row}")
     
-    # 1. Znalezienie sąsiadów
-    neighbors = get_neighbors(X_train, Y_train, x_test_row, k=K_NEIGHBORS)
-    print(f"Etykiety {K_NEIGHBORS} najbliższych sąsiadów: {neighbors}")
+    # Predykcja NN (używa K=1 wewnątrz)
+    prediction = predict_nn(X_train, Y_train, x_test_row)
     
-    # 2. Predykcja
-    prediction = predict_knn(X_train, Y_train, x_test_row, k=K_NEIGHBORS)
-    
-    print(f"Przewidziana klasa (K-NN) dla {x_test_row}: {prediction}")
-
-    # Przykładowy wiersz z danych treningowych (do weryfikacji)
-    # pred_train = predict_knn(X_train, Y_train, X_train[0], k=K_NEIGHBORS) 
-    # print(f"Predykcja dla pierwszego przykładu: {pred_train}, Prawdziwa etykieta: {Y_train[0]}")
+    print(f"Przewidziana klasa (Nearest Neighbor): {prediction}")
