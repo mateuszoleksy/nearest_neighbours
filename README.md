@@ -4,12 +4,6 @@ Implementation of k-NN algorithm in Python.
 
 This project is designed to demonstrate the distance-based classification. It includes a custom visualization to inspect how different values of $k$ and different distance metrics impact decision boundaries.
 
-## Table of Contents
-- [Formulas](#-mathematical-formulas)
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [Visualization](#-visualization)
-
 ## Formulas
 
 The core of the k-NN algorithm relies on calculating the distance between a new point $x$ and existing training points $y$ in an $n$-dimensional space. This implementation supports three specific metrics:
