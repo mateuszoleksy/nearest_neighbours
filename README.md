@@ -32,15 +32,31 @@ $$
 d(x, y) = \left(\sum_{i=1}^{n} |x_i - y_i|^p\right)^{\frac{1}{p}}
 $$
 
-### 4. Classification (Voting)
+### 4. Classification (Distance-Weighted Voting)
 
-Once the $k$ nearest neighbors are identified based on the distances above, the algorithm predicts the class using a majority vote (Mode):
+Unlike standard k-NN (which uses a simple majority vote), this implementation uses **Inverse Distance Weighting**. Neighbors that are closer to the query point have a stronger influence on the prediction than those further away.
+
+1. **Calculate Weight:** For each of the $k$ nearest neighbors, a weight $w_i$ is calculated based on its distance $d_i$:
 
 $$
-C_{pred} = \text{mode}(\{y_1, y_2, ..., y_k\})
+w_i = \frac{1}{d_i + \epsilon}
 $$
 
-Where $y_i$ is the class label of the $i$-th nearest neighbor.
+*(Where $\epsilon$ is a small constant, e.g., $10^{-6}$, to prevent division by zero if $d_i = 0$)*.
+
+2. **Sum Weights:** The weights are summed for each unique class $c$:
+
+$$
+\text{Score}_c = \sum_{i=1}^{k} w_i \cdot \mathbb{I}(y_i = c)
+$$
+
+*(Where $\mathbb{I}$ is $1$ if the neighbor belongs to class $c$, and $0$ otherwise)*.
+
+3. **Predict:** The class with the highest total score is selected:
+
+$$
+C_{pred} = \text{argmax}_c (\text{Score}_c)
+$$
 
 ## Installation
 
