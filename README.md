@@ -42,21 +42,9 @@ $$
 w_i = \frac{1}{d_i + \epsilon}
 $$
 
-*(Where $\epsilon$ is a small constant, e.g., $10^{-6}$, to prevent division by zero if $d_i = 0$)*.
-
-2. **Sum Weights:** The weights are summed for each unique class $c$:
-
-$$
-\text{Score}_c = \sum_{i=1}^{k} w_i \cdot \mathbb{I}(y_i = c)
-$$
-
-*(Where $\mathbb{I}$ is $1$ if the neighbor belongs to class $c$, and $0$ otherwise)*.
+2. **Sum Weights:** The weights are summed for each unique class:
 
 3. **Predict:** The class with the highest total score is selected:
-
-$$
-C_{pred} = \text{argmax}_c (\text{Score}_c)
-$$
 
 ## Installation
 
