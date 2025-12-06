@@ -57,3 +57,8 @@ pip install numpy matplotlib
 ## Results
 
 ![Results](results.png)
+
+## Authors
+
+Developer: Mikołaj Gruszka
+Tester: Mateusz Oleksy
